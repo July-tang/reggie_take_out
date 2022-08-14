@@ -75,13 +75,13 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
 
     @Override
     @Transactional
-    public void removeWithFlavor(String id) {
-        File image = new File(basePath + this.getById(id).getImage());
+    public void removeWithFlavor(Dish dish) {
+        File image = new File(basePath + dish.getImage());
         image.delete();
-        this.removeById(id);
+        this.removeById(dish);
 
         LambdaQueryWrapper<DishFlavor> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(DishFlavor::getDishId, id);
+        queryWrapper.eq(DishFlavor::getDishId, dish.getId());
         dishFlavorService.remove(queryWrapper);
     }
 }

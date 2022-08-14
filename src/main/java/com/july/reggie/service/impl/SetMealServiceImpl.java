@@ -80,13 +80,13 @@ public class SetMealServiceImpl extends ServiceImpl<SetMealMapper, Setmeal> impl
 
     @Override
     @Transactional
-    public void removeWithDish(String id) {
-        File image = new File(basePath + this.getById(id).getImage());
+    public void removeWithDish(Setmeal setmeal) {
+        File image = new File(basePath + setmeal.getImage());
         image.delete();
-        this.removeById(id);
+        this.removeById(setmeal);
 
         LambdaQueryWrapper<SetmealDish> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(SetmealDish::getSetmealId, id);
+        queryWrapper.eq(SetmealDish::getSetmealId, setmeal.getId());
         setmealDishService.remove(queryWrapper);
     }
 }

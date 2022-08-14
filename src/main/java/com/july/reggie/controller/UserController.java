@@ -8,10 +8,12 @@ import com.july.reggie.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpSession;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author july
@@ -23,6 +25,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private RedisTemplate<Object, Object> redisTemplate;
 
     /**
      * 发送验证码
@@ -37,7 +42,7 @@ public class UserController {
         if (StringUtils.isNotEmpty(phone)) {
             String code = ValidateCodeUtils.generateValidateCode(6);
             log.info("发出的手机验证码为：{}", code);
-            session.setAttribute(phone,code);
+            redisTemplate.opsForValue().set(phone, code,5, TimeUnit.MINUTES);
             return R.success("手机验证码短信发送成功");
         }
         return R.error("手机号为空，短信发送失败");
@@ -55,7 +60,7 @@ public class UserController {
         String phone = map.get("phone");
         String code = map.get("code");
 
-        Object codeInSession = session.getAttribute(phone);
+        Object codeInSession = redisTemplate.opsForValue().get(phone);
 
         if (codeInSession != null && codeInSession.equals(code)) {
             LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
@@ -70,9 +75,10 @@ public class UserController {
                 userService.save(user);
             }
             session.setAttribute("user",user.getId());
+            redisTemplate.delete(phone);
             return R.success(user);
         }
-        return R.error("登陆失败");
+        return R.error("验证码错误, 登陆失败");
     }
 
     /**

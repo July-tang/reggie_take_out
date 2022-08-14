@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -73,6 +75,7 @@ public class DishController {
      * @return
      */
     @PostMapping
+    @CacheEvict(value = "dishCache", key = "#dishDto.categoryId + '_' + #dishDto.status")
     public R<String> save(@RequestBody DishDto dishDto) {
         dishService.saveWithFlavor(dishDto);
         return R.success("新增菜品成功");
@@ -97,6 +100,7 @@ public class DishController {
      * @return
      */
     @PutMapping
+    @CacheEvict(value = "dishCache", key = "#dishDto.categoryId + '_' + #dishDto.status")
     public R<String> update(@RequestBody DishDto dishDto) {
         dishService.updateWithFlavor(dishDto);
         return R.success("修改菜品成功");
@@ -110,6 +114,7 @@ public class DishController {
      * @return
      */
     @PostMapping("/status/{status}")
+    @CacheEvict(value = "dishCache", allEntries = true)
     public R<String> sale(@PathVariable int status, String[] ids) {
         for (String id : ids) {
             Dish dish = dishService.getById(id);
@@ -126,9 +131,11 @@ public class DishController {
      * @return
      */
     @DeleteMapping
+    @CacheEvict(value = "dishCache", allEntries = true)
     public R<String> delete(String[] ids) {
         for (String id : ids) {
-            dishService.removeWithFlavor(id);
+            Dish dish = dishService.getById(id);
+            dishService.removeWithFlavor(dish);
         }
         return R.success("删除成功");
     }
@@ -140,6 +147,7 @@ public class DishController {
      * @return
      */
     @GetMapping("/list")
+    @Cacheable(value = "dishCache", key = "#dish.categoryId + '_' + #dish.status")
     public R<List<DishDto>> list(Dish dish) {
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Dish::getStatus,1)
