@@ -56,10 +56,10 @@
             <script src="../../backend/plugins/axios/axios.min.js"></script>
             <script src="./../js/request.js"></script>
             <script>
-                new Vue({
-                    el:"#address",
-                    data(){
-                        return {
+            new Vue({
+                el:"#address",
+                data(){
+                    return {
                         addressList:[
                         //     {
                         //     label:'公司',
@@ -148,6 +148,7 @@
                         //表示是从订单页面跳转过来的
                         if(url.includes('order')){
                             this.setDefaultAddress(item)
+                            history.go(-1)
                         }
                     }
                 }
