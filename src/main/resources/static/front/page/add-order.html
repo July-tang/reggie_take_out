@@ -188,14 +188,16 @@
                     async goToPaySuccess(){
                         const params = {
                             remark:this.note,
-                            payMethod:1,
+                            payMethod:2,
                             addressBookId:this.address.id
                         }
                         const res = await addOrderApi(params)
                         if(res.code === 1){
-                            window.requestAnimationFrame(()=>{
-                                window.location.replace('/front/page/pay-success.html')
-                            })
+                            const div=document.createElement('divform');
+                            div.innerHTML=res.data;
+                            document.body.appendChild(div);
+                            document.forms[0].acceptCharset='GBK';
+                            document.forms[0].submit();
                         }else{
                             this.$notify({ type:'warning', message:res.msg});
                         }

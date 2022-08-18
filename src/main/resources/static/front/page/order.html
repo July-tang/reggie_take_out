@@ -49,6 +49,13 @@
                         <div class="btn" v-if="order.status === 4">
                             <div class="btnAgain" @click="addOrderAgain(order)">再来一单</div>
                         </div>
+                        <div class="btn" v-if="order.status === 1">
+                            <div class="btnAgain" @click="payOrder(order)">去支付</div>
+                            <div class="btnAgain" @click="cancelOrder(order)">取消订单</div>
+                        </div>
+                        <div class="btn" v-if="order.status === 2">
+                            <div class="btnAgain" @click="cancelOrder(order)">取消订单</div>
+                        </div>
                     </van-cell>
                 </van-list>
             </div>
@@ -137,6 +144,26 @@
                             window.location.href= '/front/index.html'
                         })
                     }else{
+                        this.$notify({ type:'warning', message:res.msg});
+                    }
+                },
+                async payOrder(order){
+                    const res = await payOrderApi(order)
+                    if(res.code === 1){
+                        const div=document.createElement('divform');
+                        div.innerHTML=res.data;
+                        document.body.appendChild(div);
+                        document.forms[0].acceptCharset='GBK';
+                        document.forms[0].submit();
+                    }else{
+                        this.$notify({ type:'warning', message:res.msg});
+                    }
+                },
+                async cancelOrder(order){
+                    const res = await cancelOrderApi({id:order.id})
+                    if(res.code === 1){
+
+                    } else{
                         this.$notify({ type:'warning', message:res.msg});
                     }
                 },

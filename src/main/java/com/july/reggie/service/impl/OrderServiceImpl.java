@@ -1,6 +1,18 @@
 package com.july.reggie.service.impl;
 
+import com.alipay.api.AlipayApiException;
+import com.alipay.api.AlipayClient;
+import com.alipay.api.domain.AlipayTradeCloseModel;
+import com.alipay.api.domain.AlipayTradeQueryModel;
+import com.alipay.api.domain.AlipayTradeWapPayModel;
+import com.alipay.api.request.AlipayTradeCloseRequest;
+import com.alipay.api.request.AlipayTradeQueryRequest;
+import com.alipay.api.request.AlipayTradeWapPayRequest;
+import com.alipay.api.response.AlipayTradeCloseResponse;
+import com.alipay.api.response.AlipayTradeQueryResponse;
+import com.alipay.api.response.AlipayTradeWapPayResponse;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -10,22 +22,26 @@ import com.july.reggie.entity.*;
 import com.july.reggie.exception.CustomException;
 import com.july.reggie.mapper.OrderMapper;
 import com.july.reggie.service.*;
-import org.apache.commons.lang.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author july
  */
 @Service
+@Slf4j
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implements OrderService {
 
     @Autowired
@@ -40,9 +56,18 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
     @Autowired
     private OrderDetailService orderDetailService;
 
+    @Autowired
+    private AlipayClient alipayClient;
+
+    @Value("${ali-pay.notify-url}")
+    private String notifyUrl;
+
+    @Value("${ali-pay.return-url}")
+    private String returnUrl;
+
     @Override
     @Transactional
-    public void submit(Orders orders) {
+    public Orders submit(Orders orders) {
         Long userId = BaseContext.getCurrentId();
 
         LambdaQueryWrapper<ShoppingCart> queryWrapper = new LambdaQueryWrapper<>();
@@ -75,7 +100,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
         orders.setId(orderId);
         orders.setOrderTime(LocalDateTime.now());
         orders.setCheckoutTime(LocalDateTime.now());
-        orders.setStatus(2);
+        orders.setStatus(1);
         orders.setAmount(new BigDecimal(amount.get()));//总金额
         orders.setUserId(userId);
         orders.setNumber(String.valueOf(orderId));
@@ -86,6 +111,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
                 + (addressBook.getCityName() == null ? "" : addressBook.getCityName())
                 + (addressBook.getDistrictName() == null ? "" : addressBook.getDistrictName())
                 + (addressBook.getDetail() == null ? "" : addressBook.getDetail()));
+
         //保存订单
         this.save(orders);
 
@@ -94,6 +120,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
 
         //清空购物车数据
         shoppingCartService.remove(queryWrapper);
+
+        return orders;
     }
 
     @Override
@@ -148,6 +176,26 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
         }
     }
 
+    @Override
+    public String pay(Orders orders) {
+        return this.createPay(orders);
+    }
+
+    @Override
+    public void cancel(Orders orders) {
+        Orders order = this.getById(orders.getId());
+        //未付款，需要取消支付
+        if (order.getStatus() == 1) {
+            if(cancelPay(order.getNumber())) {
+                order.setStatus(5);
+                this.updateById(order);
+            }
+        } else {
+            order.setStatus(5);
+            this.updateById(order);
+        }
+    }
+
     /**
      * 设置订单明细参数
      *
@@ -180,4 +228,64 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
         shoppingCart.setAmount(orderDetail.getAmount());
     }
 
+    private String createPay(Orders orders) {
+        //请求
+        AlipayTradeWapPayRequest request = new AlipayTradeWapPayRequest();
+        //数据
+        AlipayTradeWapPayModel bizModel = new AlipayTradeWapPayModel();
+        bizModel.setSubject(orders.getOrderTime().toString());
+        bizModel.setOutTradeNo(orders.getNumber());
+        //单位是元
+        bizModel.setTotalAmount(orders.getAmount()
+                .toString());
+        //默认的
+        bizModel.setProductCode("FAST_INSTANT_TRADE_PAY");
+        request.setBizModel(bizModel);
+        request.setNotifyUrl(notifyUrl);
+        //用户支付后支付宝会以GET方法请求returnUrl,并且携带out_trade_no,trade_no,total_amount等参数.
+
+        request.setReturnUrl(returnUrl);
+        AlipayTradeWapPayResponse response = null;
+        try {
+            //完成签名并执行请求
+            response = alipayClient.pageExecute(request);
+            if (response.isSuccess()) {
+                log.debug("调用成功");
+                return response.getBody();
+            }
+            else {
+                log.error("调用失败");
+                log.error(response.getMsg());
+                return null;
+            }
+        }
+        catch (AlipayApiException e) {
+            log.error("调用异常");
+            return null;
+        }
+    }
+
+    private boolean cancelPay(String orderNumber){
+        //请求
+        AlipayTradeCloseRequest request=new AlipayTradeCloseRequest();
+        //数据
+        AlipayTradeCloseModel bizModel=new AlipayTradeCloseModel();
+        bizModel.setOutTradeNo(orderNumber);
+        request.setBizModel(bizModel);
+        try{
+            //完成签名并执行请求
+            AlipayTradeCloseResponse response=alipayClient.execute(request);
+            if(response.isSuccess()){
+                log.debug("订单{}取消成功", orderNumber);
+            }
+            else{
+                log.debug("订单{}未创建,因此也可认为本次取消成功.", orderNumber);
+            }
+            return true;
+        }
+        catch(AlipayApiException e){
+            log.error("订单{}取消异常",orderNumber);
+            return false;
+        }
+    }
 }

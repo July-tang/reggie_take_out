@@ -32,3 +32,21 @@ function orderAgainApi(data) {
       data
   })
 }
+
+//支付订单
+function payOrderApi(data) {
+    return $axios({
+        'url': '/order/toPay',
+        'method': 'post',
+        data
+    })
+}
+
+//取消订单
+function cancelOrderApi(data) {
+    return $axios({
+        'url': '/order/cancel',
+        'method': 'post',
+        data
+    })
+}

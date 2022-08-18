@@ -34,7 +34,8 @@ public class LoginCheckFilter implements Filter {
                 "/backend/**",
                 "/front/**",
                 "/user/login",
-                "/user/sendMsg"
+                "/user/sendMsg",
+                "/order/pay"
         };
 
         Long empId = (Long) request.getSession().getAttribute("employee");
