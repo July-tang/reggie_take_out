@@ -65,7 +65,7 @@ public class ShoppingCartController {
             //如果不存在，则添加到购物车中，默认为一
             shoppingCart.setNumber(1);
             shoppingCart.setCreateTime(LocalDateTime.now());
-            shoppingCartService.save(shoppingCart);
+            shoppingCartService.saveIfAbsent(shoppingCart);
             cartServiceOne = shoppingCart;
         }
         return R.success(cartServiceOne);

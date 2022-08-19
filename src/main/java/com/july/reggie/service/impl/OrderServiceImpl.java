@@ -17,12 +17,14 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.july.reggie.commom.BaseContext;
+import com.july.reggie.config.RabbitConfig;
 import com.july.reggie.dto.OrdersDto;
 import com.july.reggie.entity.*;
 import com.july.reggie.exception.CustomException;
 import com.july.reggie.mapper.OrderMapper;
 import com.july.reggie.service.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,10 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -58,6 +57,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
 
     @Autowired
     private AlipayClient alipayClient;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
     @Value("${ali-pay.notify-url}")
     private String notifyUrl;
@@ -115,6 +117,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
         //保存订单
         this.save(orders);
 
+        //发送订单号到延迟队列
+        rabbitTemplate.convertAndSend(RabbitConfig.DELAYED_EXCHANGE_NAME, RabbitConfig.DELAYED_ROUTING_KEY,
+                orders.getNumber() , message -> {
+                    message.getMessageProperties().setDelay(10 * 1000);
+                    return message;
+                });
+        log.info("当前时间：{}， 生成订单号{}的订单", new Date(), orders.getNumber());
         //保存订单明细
         orderDetailService.saveBatch(orderDetails);
 

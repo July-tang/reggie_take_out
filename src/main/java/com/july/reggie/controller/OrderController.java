@@ -32,7 +32,6 @@ public class OrderController {
 
     @Value("${ali-pay.ali-pay-public-key}")
     private String aliPayPublicKey;
-
     /**
      * 提交订单并跳转支付界面
      *
@@ -42,6 +41,7 @@ public class OrderController {
     @PostMapping("/submit")
     public R<String> submit(@RequestBody Orders orders){
         Orders order = orderService.submit(orders);
+
         String payUrl = orderService.pay(order);
         return R.success(payUrl);
     }
