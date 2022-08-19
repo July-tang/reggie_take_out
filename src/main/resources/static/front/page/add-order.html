@@ -193,6 +193,14 @@
                         }
                         const res = await addOrderApi(params)
                         if(res.code === 1){
+                            await this.payOrder(res.data)
+                        }else{
+                            this.$notify({ type:'warning', message:res.msg});
+                        }
+                    },
+                    async payOrder(order){
+                        const res = await payOrderApi(order)
+                        if(res.code === 1){
                             const div=document.createElement('divform');
                             div.innerHTML=res.data;
                             document.body.appendChild(div);

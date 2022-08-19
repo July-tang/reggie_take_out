@@ -3,16 +3,12 @@ package com.july.reggie.service.impl;
 import com.alipay.api.AlipayApiException;
 import com.alipay.api.AlipayClient;
 import com.alipay.api.domain.AlipayTradeCloseModel;
-import com.alipay.api.domain.AlipayTradeQueryModel;
 import com.alipay.api.domain.AlipayTradeWapPayModel;
 import com.alipay.api.request.AlipayTradeCloseRequest;
-import com.alipay.api.request.AlipayTradeQueryRequest;
 import com.alipay.api.request.AlipayTradeWapPayRequest;
 import com.alipay.api.response.AlipayTradeCloseResponse;
-import com.alipay.api.response.AlipayTradeQueryResponse;
 import com.alipay.api.response.AlipayTradeWapPayResponse;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -68,24 +64,39 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
     private String returnUrl;
 
     @Override
-    @Transactional
-    public Orders submit(Orders orders) {
+    public Orders submitToQueue(Orders orders) {
         Long userId = BaseContext.getCurrentId();
+        orders.setUserId(userId);
+        long orderId = IdWorker.getId();
+        orders.setId(orderId);
+        orders.setNumber(String.valueOf(orderId));
+        rabbitTemplate.convertAndSend(RabbitConfig.ORDER_EXCHANGE_NAME,
+                RabbitConfig.ORDER_ROUTING_KEY, orders);
+        log.info("发送订单消息至消息队列：{}", orders);
+        return orders;
+    }
+
+    @Override
+    @Transactional
+    public Orders submitOrder(Orders orders) {
+        Long userId = orders.getUserId();
+        Long orderId = orders.getId();
 
         LambdaQueryWrapper<ShoppingCart> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(ShoppingCart::getUserId, userId);
+
+        //获取购物车商品信息
         List<ShoppingCart> shoppingCarts = shoppingCartService.list(queryWrapper);
         if (shoppingCarts == null || shoppingCarts.size() == 0) {
             throw new CustomException("购物车为空，提交订单失败！");
         }
-
+        //获取收货地址信息
         AddressBook addressBook = addressBookService.getById(orders.getAddressBookId());
         if (addressBook == null) {
             throw new CustomException("用户地址信息有误，提交订单失败！");
         }
-
+        //获取下单用户
         User user = userService.getById(userId);
-        long orderId = IdWorker.getId();
         AtomicInteger amount = new AtomicInteger(0);
 
         List<OrderDetail> orderDetails = new ArrayList<>();
@@ -99,13 +110,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
             orderDetails.add(orderDetail);
         }
         //设置订单参数
-        orders.setId(orderId);
         orders.setOrderTime(LocalDateTime.now());
         orders.setCheckoutTime(LocalDateTime.now());
         orders.setStatus(1);
         orders.setAmount(new BigDecimal(amount.get()));//总金额
-        orders.setUserId(userId);
-        orders.setNumber(String.valueOf(orderId));
         orders.setUserName(user.getName());
         orders.setConsignee(addressBook.getConsignee());
         orders.setPhone(addressBook.getPhone());
@@ -116,17 +124,15 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
 
         //保存订单
         this.save(orders);
-
+        //保存订单明细
+        orderDetailService.saveBatch(orderDetails);
         //发送订单号到延迟队列
         rabbitTemplate.convertAndSend(RabbitConfig.DELAYED_EXCHANGE_NAME, RabbitConfig.DELAYED_ROUTING_KEY,
                 orders.getNumber() , message -> {
-                    message.getMessageProperties().setDelay(10 * 1000);
+                    message.getMessageProperties().setDelay(2 * 60 * 1000);
                     return message;
                 });
         log.info("当前时间：{}， 生成订单号{}的订单", new Date(), orders.getNumber());
-        //保存订单明细
-        orderDetailService.saveBatch(orderDetails);
-
         //清空购物车数据
         shoppingCartService.remove(queryWrapper);
 

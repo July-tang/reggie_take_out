@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -32,18 +33,19 @@ public class OrderController {
 
     @Value("${ali-pay.ali-pay-public-key}")
     private String aliPayPublicKey;
+
     /**
-     * 提交订单并跳转支付界面
+     * 提交订单至消息队列
      *
      * @param orders
      * @return
      */
     @PostMapping("/submit")
-    public R<String> submit(@RequestBody Orders orders){
-        Orders order = orderService.submit(orders);
-
-        String payUrl = orderService.pay(order);
-        return R.success(payUrl);
+    public R<Orders> submit(@RequestBody Orders orders){
+        Orders order = orderService.submitToQueue(orders);
+        order.setAmount(new BigDecimal(10));
+        orders.setOrderTime(LocalDateTime.now());
+        return R.success(order);
     }
 
     /**
