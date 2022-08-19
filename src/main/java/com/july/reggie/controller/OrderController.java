@@ -85,7 +85,7 @@ public class OrderController {
                 queryWrapper.eq(Orders::getNumber, data.get("out_trade_no"));
                 Orders order = orderService.getOne(queryWrapper);
                 synchronized(this){
-                    if(order.getStatus() != 2){
+                    if(order.getStatus().equals(1)){
                         //将订单设置为已支付状态
                         order.setStatus(2);
                         //更新订单状态
