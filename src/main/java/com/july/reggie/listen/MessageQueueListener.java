@@ -49,6 +49,5 @@ public class MessageQueueListener {
         }
         log.info("收到订单队列的消息：{}", order);
         Orders orderWithDetails = orderService.submitOrder(order);
-        //TODO 通知前端调用支付方法并跳转支付界面
     }
 }

@@ -56,6 +56,9 @@ public class OrderController {
      */
     @PostMapping("/toPay")
     public R<String> toPay(@RequestBody Orders orders) {
+        if (orders.getStatus() != null && orders.getStatus() == 0) {
+            return R.error("该订单已被支付或已取消");
+        }
         return R.success(orderService.pay(orders));
     }
 
@@ -93,8 +96,9 @@ public class OrderController {
                         //更新订单状态
                         orderService.updateById(order);
                         log.info("订单{}的支付记录修改成功}.",order.getNumber());
-                    }
-                    else{
+                    } else if (order.getStatus().equals(2)){
+                        log.info("订单已被支付！将为你进行退款");
+                    } else {
                         log.debug("订单{}状态为{},回调处理退出.",order.getNumber(), order.getStatus());
                     }
                 }

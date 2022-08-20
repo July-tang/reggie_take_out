@@ -77,6 +77,6 @@ ali-pay:
   #支付宝网关
   gateway-url: https://openapi.alipaydev.com/gateway.do
   #接收结果通知地址
-  notify-url: https://179b-110-53-234-151.jp.ngrok.io/order/pay
+  notify-url:  https://5e86-110-53-234-151.jp.ngrok.io/order/pay
   #页面跳转同步通知页面路径
   return-url: http://localhost:8080/front/page/pay-success.html
