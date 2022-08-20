@@ -10,10 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.util.UUID;
 
 /**
@@ -38,13 +35,6 @@ public class CommonController {
         String originalFilename = file.getOriginalFilename();
         String fileName = UUID.randomUUID().toString() + originalFilename.substring(originalFilename.lastIndexOf("."));
 
-        //创建一个目录对象
-        File dir = new File(basePath);
-        //判断当前目录是否存在
-        if(!dir.exists()){
-            //目录不存在
-            dir.mkdirs();
-        }
 
         try {
             file.transferTo(new File(basePath + fileName));
@@ -65,7 +55,7 @@ public class CommonController {
     @GetMapping("/download")
     public void download(String name, HttpServletResponse response) {
         try {
-            FileInputStream fileInputStream = new FileInputStream(basePath + name);
+            InputStream fileInputStream = this.getClass().getResourceAsStream(basePath + name);
 
             ServletOutputStream outputStream = response.getOutputStream();
 
