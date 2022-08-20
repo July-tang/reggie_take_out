@@ -59,7 +59,7 @@ mybatis-plus:
     db-config:
       id-type: ASSIGN_ID
 reggie:
-  path: D:\reggie\image\
+  path: /image/
 
 ali-pay:
   #接下来两个用来标识用户
