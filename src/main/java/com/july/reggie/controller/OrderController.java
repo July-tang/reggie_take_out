@@ -70,8 +70,8 @@ public class OrderController {
      */
     @PostMapping("/cancel")
     public R<String> cancel(@RequestBody Orders orders) {
-        orderService.cancel(orders);
-        return R.success("取消成功");
+        return orderService.cancel(orders) ? R.success("取消成功！")
+                : R.error("订单取消异常, 请检查订单状态！");
     }
 
     /**

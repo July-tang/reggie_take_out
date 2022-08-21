@@ -3,10 +3,13 @@ package com.july.reggie.service.impl;
 import com.alipay.api.AlipayApiException;
 import com.alipay.api.AlipayClient;
 import com.alipay.api.domain.AlipayTradeCloseModel;
+import com.alipay.api.domain.AlipayTradeRefundModel;
 import com.alipay.api.domain.AlipayTradeWapPayModel;
 import com.alipay.api.request.AlipayTradeCloseRequest;
+import com.alipay.api.request.AlipayTradeRefundRequest;
 import com.alipay.api.request.AlipayTradeWapPayRequest;
 import com.alipay.api.response.AlipayTradeCloseResponse;
+import com.alipay.api.response.AlipayTradeRefundResponse;
 import com.alipay.api.response.AlipayTradeWapPayResponse;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
@@ -197,17 +200,64 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
     }
 
     @Override
-    public void cancel(Orders orders) {
+    public boolean cancel(Orders orders) {
         Orders order = this.getById(orders.getId());
-        //未付款，需要取消支付
         if (order.getStatus() == 1) {
+            //未付款，若支付已发起需要取消支付
             if(cancelPay(order.getNumber())) {
                 order.setStatus(5);
                 this.updateById(order);
+                return true;
             }
         } else {
-            order.setStatus(5);
-            this.updateById(order);
+            if (order.getStatus() != 5) {
+                //已支付，需要进行退款
+                HashMap<String, Object> refund = createRefund(order);
+                if ((boolean) refund.get("isRefundSuccess")) {
+                    order.setStatus(5);
+                    this.updateById(order);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
+    /**
+     * 订单退款
+     *
+     * @param order
+     */
+    private HashMap<String,Object> createRefund(Orders order){
+        //请求
+        AlipayTradeRefundRequest request=new AlipayTradeRefundRequest();
+        //数据
+        AlipayTradeRefundModel bizModel=new AlipayTradeRefundModel();
+        //订单号
+        bizModel.setOutTradeNo(order.getNumber());
+
+        bizModel.setRefundAmount(order.getAmount().toString());
+        request.setBizModel(bizModel);
+        HashMap<String,Object> resultMap = new HashMap<>();
+        try {
+            //完成签名并执行请求
+            AlipayTradeRefundResponse response = alipayClient.execute(request);
+            //成功则说明退款成功了
+            resultMap.put("data",response.getBody());
+            if (response.isSuccess()) {
+                resultMap.put("isRefundSuccess",true);
+                log.debug("订单{}退款成功",order.getNumber());
+            } else {
+                resultMap.put("isRefundSuccess",false);
+                log.error("订单{}退款失败",order.getNumber());
+            }
+            return resultMap;
+        }
+        catch(AlipayApiException e) {
+            resultMap.put("isRefundSuccess",false);
+            log.error("订单{}退款异常",order.getNumber());
+            return resultMap;
         }
     }
 

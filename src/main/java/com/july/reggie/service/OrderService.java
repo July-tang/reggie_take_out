@@ -54,6 +54,7 @@ public interface OrderService extends IService<Orders> {
      * 取消订单
      *
      * @param orders
+     * @return
      */
-    void cancel(Orders orders);
+    boolean cancel(Orders orders);
 }
