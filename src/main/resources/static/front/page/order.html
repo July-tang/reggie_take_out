@@ -21,7 +21,7 @@
         <div id="order" class="app">
             <div class="divHead">
                 <div class="divTitle">
-                    <i class="el-icon-arrow-left" @click="goBack"></i>菩提阁
+                    <i class="el-icon-arrow-left" @click="goBack"></i>我的订单
                 </div>
             </div>
             <div class="divBody" v-if="orderList.length > 0">
@@ -162,7 +162,7 @@
                 async cancelOrder(order){
                     const res = await cancelOrderApi({id:order.id})
                     if(res.code === 1){
-
+                        window.location.reload()
                     } else{
                         this.$notify({ type:'warning', message:res.msg});
                     }
@@ -174,7 +174,7 @@
                             str =  '待付款'
                         break;
                         case 2:
-                            str =  '正在派送'
+                            str =  '正在备餐'
                         break;
                         case 3:
                             str =  '已派送'

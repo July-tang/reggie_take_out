@@ -16,7 +16,7 @@ import java.io.IOException;
  * @author july
  */
 @Slf4j
-@WebFilter(filterName = "loginCheckFilter", urlPatterns = "/*")
+@WebFilter(filterName = "loginCheckFilter", urlPatterns = "/*", asyncSupported = true)
 public class LoginCheckFilter implements Filter {
 
     public static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
@@ -35,7 +35,8 @@ public class LoginCheckFilter implements Filter {
                 "/front/**",
                 "/user/login",
                 "/user/sendMsg",
-                "/order/pay"
+                "/order/pay",
+                "/sse/connect"
         };
 
         Long empId = (Long) request.getSession().getAttribute("employee");

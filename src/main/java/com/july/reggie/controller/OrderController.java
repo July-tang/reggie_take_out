@@ -15,8 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.Map;
 
 
@@ -43,8 +41,6 @@ public class OrderController {
     @PostMapping("/submit")
     public R<Orders> submit(@RequestBody Orders orders){
         Orders order = orderService.submitToQueue(orders);
-        order.setAmount(new BigDecimal(10));
-        orders.setOrderTime(LocalDateTime.now());
         return R.success(order);
     }
 

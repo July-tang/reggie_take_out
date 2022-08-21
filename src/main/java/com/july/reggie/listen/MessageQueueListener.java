@@ -1,5 +1,6 @@
 package com.july.reggie.listen;
 
+import com.july.reggie.commom.SseEmitterServer;
 import com.july.reggie.config.RabbitConfig;
 import com.july.reggie.entity.Orders;
 import com.july.reggie.service.OrderService;
@@ -49,5 +50,6 @@ public class MessageQueueListener {
         }
         log.info("收到订单队列的消息：{}", order);
         Orders orderWithDetails = orderService.submitOrder(order);
+        SseEmitterServer.sendMessage("add_order", orderWithDetails);
     }
 }

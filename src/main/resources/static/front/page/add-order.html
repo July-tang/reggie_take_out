@@ -134,6 +134,71 @@
                 },
                 created(){
                     this.initData()
+                    let source = null;
+
+                    const userId = "add_order";
+
+                    if (!!window.EventSource) {
+
+                        // 建立连接
+                        source = new EventSource('http://localhost:8080/sse/connect/' + userId);
+
+                        /**
+                         * 连接一旦建立，就会触发open事件
+                         * 另一种写法：source.onopen = function (event) {}
+                         */
+                        source.addEventListener('open', function (e) {
+
+                        }, false);
+
+                        /**
+                         * 客户端收到服务器发来的数据
+                         * 另一种写法：source.onmessage = function (event) {}
+                         */
+                        source.addEventListener('message', async function (e) {
+                            const res = await payOrderApi(e.data)
+                            if (res.code === 1) {
+                                const div = document.createElement('divform');
+                                div.innerHTML = res.data;
+                                document.body.appendChild(div);
+                                document.forms[0].acceptCharset = 'GBK';
+                                document.forms[0].submit();
+                            } else {
+                                this.$notify({type: 'warning', message: res.msg});
+                            }
+                        });
+
+                        /**
+                         * 如果发生通信错误（比如连接中断），就会触发error事件
+                         * 或者：
+                         * 另一种写法：source.onerror = function (event) {}
+                         */
+                        source.addEventListener('error', function (e) {
+                            if (e.readyState === EventSource.CLOSED) {
+
+                            } else {
+                                console.log(e);
+                            }
+                        }, false);
+
+                    } else {
+
+                    }
+
+                    // 监听窗口关闭事件，主动去关闭sse连接，如果服务端设置永不过期，浏览器关闭后手动清理服务端数据
+                    window.onbeforeunload = function () {
+                        closeSse();
+                    };
+
+                    // 关闭Sse连接
+                    function closeSse() {
+                        source.close();
+                        const httpRequest = new XMLHttpRequest();
+                        httpRequest.open('GET', 'http://localhost:8080/sse/close/' + userId, true);
+                        httpRequest.send();
+                        console.log("close");
+                    }
+
                 },
                 mounted(){},
                 methods:{
@@ -193,7 +258,7 @@
                         }
                         const res = await addOrderApi(params)
                         if(res.code === 1){
-                            await this.payOrder(res.data)
+
                         }else{
                             this.$notify({ type:'warning', message:res.msg});
                         }
@@ -217,5 +282,9 @@
                 }
             })
             </script>
+        <script>
+
+
+        </script>
         </body>
     </html>
