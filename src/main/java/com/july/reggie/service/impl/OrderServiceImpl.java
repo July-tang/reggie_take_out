@@ -12,6 +12,7 @@ import com.alipay.api.response.AlipayTradeCloseResponse;
 import com.alipay.api.response.AlipayTradeRefundResponse;
 import com.alipay.api.response.AlipayTradeWapPayResponse;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -27,12 +28,14 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -58,6 +61,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
     private AlipayClient alipayClient;
 
     @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
+    @Autowired
     private RabbitTemplate rabbitTemplate;
 
     @Value("${ali-pay.notify-url}")
@@ -67,16 +73,19 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
     private String returnUrl;
 
     @Override
-    public Orders submitToQueue(Orders orders) {
+    public boolean submitToQueue(Orders orders) {
         Long userId = BaseContext.getCurrentId();
+        Long orderId = IdWorker.getId();
+        if (redisTemplate.opsForValue().get(userId.toString()) != null) return false;
         orders.setUserId(userId);
-        long orderId = IdWorker.getId();
         orders.setId(orderId);
         orders.setNumber(String.valueOf(orderId));
         rabbitTemplate.convertAndSend(RabbitConfig.ORDER_EXCHANGE_NAME,
                 RabbitConfig.ORDER_ROUTING_KEY, orders);
         log.info("发送订单消息至消息队列：{}", orders);
-        return orders;
+
+        redisTemplate.opsForValue().set(userId.toString(), orderId.toString(), 500, TimeUnit.MILLISECONDS);
+        return true;
     }
 
     @Override
@@ -125,10 +134,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
                 + (addressBook.getDistrictName() == null ? "" : addressBook.getDistrictName())
                 + (addressBook.getDetail() == null ? "" : addressBook.getDetail()));
 
-        //保存订单
-        this.save(orders);
-        //保存订单明细
-        orderDetailService.saveBatch(orderDetails);
+        //保存订单和订单明细
+        this.saveIfAbsent(orders, orderDetails);
+        //清空购物车数据
+        shoppingCartService.remove(queryWrapper);
+
         //发送订单号到延迟队列
         rabbitTemplate.convertAndSend(RabbitConfig.DELAYED_EXCHANGE_NAME, RabbitConfig.DELAYED_ROUTING_KEY,
                 orders.getNumber() , message -> {
@@ -136,8 +146,6 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
                     return message;
                 });
         log.info("当前时间：{}， 生成订单号{}的订单", new Date(), orders.getNumber());
-        //清空购物车数据
-        shoppingCartService.remove(queryWrapper);
 
         return orders;
     }
@@ -221,6 +229,23 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
             }
         }
         return false;
+    }
+
+    /**
+     * 保存订单和订单明细当订单不存在时
+     *
+     * @param orders
+     * @param orderDetails
+     */
+    @Override
+    public void saveIfAbsent(Orders orders, List<OrderDetail> orderDetails) {
+        LambdaUpdateWrapper<Orders> queryWrapper = new LambdaUpdateWrapper<>();
+        queryWrapper.eq(Orders::getNumber, orders.getNumber());
+
+        if (this.getOne(queryWrapper) == null) {
+            this.save(orders);
+            orderDetailService.saveBatch(orderDetails);
+        }
     }
 
 

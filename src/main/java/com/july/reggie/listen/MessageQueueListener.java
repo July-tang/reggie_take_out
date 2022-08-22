@@ -49,7 +49,14 @@ public class MessageQueueListener {
             e.printStackTrace();
         }
         log.info("收到订单队列的消息：{}", order);
-        Orders orderWithDetails = orderService.submitOrder(order);
-        SseEmitterServer.sendMessage("add_order", orderWithDetails);
+        Orders orderWithDetails = null;
+        try {
+            orderWithDetails = orderService.submitOrder(order);
+        } catch (Exception e) {
+            log.info(e.getMessage());
+        }
+        if (orderWithDetails != null) {
+            SseEmitterServer.sendMessage("add_order", orderWithDetails);
+        }
     }
 }

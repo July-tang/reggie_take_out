@@ -258,7 +258,7 @@
                         }
                         const res = await addOrderApi(params)
                         if(res.code === 1){
-
+                            this.$notify( {type:'success',  message:res.msg})
                         }else{
                             this.$notify({ type:'warning', message:res.msg});
                         }

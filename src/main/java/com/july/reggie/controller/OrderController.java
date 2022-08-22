@@ -39,9 +39,9 @@ public class OrderController {
      * @return
      */
     @PostMapping("/submit")
-    public R<Orders> submit(@RequestBody Orders orders){
-        Orders order = orderService.submitToQueue(orders);
-        return R.success(order);
+    public R<String> submit(@RequestBody Orders orders){
+        return orderService.submitToQueue(orders) ? R.success("提交成功")
+                : R.error("你提交频率的太快了，休息一下吧");
     }
 
     /**

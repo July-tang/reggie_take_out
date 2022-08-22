@@ -15,5 +15,5 @@ public interface ShoppingCartMapper extends BaseMapper<ShoppingCart> {
             "(id,name,user_id,dish_id,setmeal_id,dish_flavor,number,amount,image,create_time) " +
             "select #{id}, #{name}, #{userId}, #{dishId}, #{setmealId}, #{dishFlavor}, #{number}, #{amount}, #{image}, #{createTime}" +
             "where not exists (select #{id} from shopping_cart where user_id = #{userId} and name = #{name})")
-    void saveWithLock(ShoppingCart shoppingCart);
+    void saveIfAbsent(ShoppingCart shoppingCart);
 }

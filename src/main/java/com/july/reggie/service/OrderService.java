@@ -3,7 +3,10 @@ package com.july.reggie.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.july.reggie.dto.OrdersDto;
+import com.july.reggie.entity.OrderDetail;
 import com.july.reggie.entity.Orders;
+
+import java.util.List;
 
 /**
  * @author july
@@ -16,7 +19,7 @@ public interface OrderService extends IService<Orders> {
      * @param orders
      * @return
      */
-    Orders submitToQueue(Orders orders);
+    boolean submitToQueue(Orders orders);
 
     /**
      * 提交订单和订单明细
@@ -57,4 +60,12 @@ public interface OrderService extends IService<Orders> {
      * @return
      */
     boolean cancel(Orders orders);
+
+    /**
+     * 保存订单和订单明细当订单不存在时
+     *
+     * @param orders
+     * @param orderDetails
+     */
+    void saveIfAbsent(Orders orders, List<OrderDetail> orderDetails);
 }
