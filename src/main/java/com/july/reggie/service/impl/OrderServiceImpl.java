@@ -135,9 +135,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
                 + (addressBook.getDetail() == null ? "" : addressBook.getDetail()));
 
         //保存订单和订单明细
-        this.saveIfAbsent(orders, orderDetails);
-        //清空购物车数据
-        shoppingCartService.remove(queryWrapper);
+        this.saveIfAbsent(orders, orderDetails, queryWrapper);
 
         //发送订单号到延迟队列
         rabbitTemplate.convertAndSend(RabbitConfig.DELAYED_EXCHANGE_NAME, RabbitConfig.DELAYED_ROUTING_KEY,
@@ -232,19 +230,22 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
     }
 
     /**
-     * 保存订单和订单明细当订单不存在时
-     *
-     * @param orders
+     * 当订单不存在时保存订单和订单明细并清空购物车
+     *  @param orders
      * @param orderDetails
+     * @param queryWrapper
      */
-    @Override
-    public void saveIfAbsent(Orders orders, List<OrderDetail> orderDetails) {
-        LambdaUpdateWrapper<Orders> queryWrapper = new LambdaUpdateWrapper<>();
-        queryWrapper.eq(Orders::getNumber, orders.getNumber());
+    public void saveIfAbsent(Orders orders, List<OrderDetail> orderDetails, LambdaQueryWrapper<ShoppingCart> queryWrapper) {
+        LambdaUpdateWrapper<Orders> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(Orders::getNumber, orders.getNumber());
 
-        if (this.getOne(queryWrapper) == null) {
+        if (this.getOne(wrapper) == null) {
+            //保存订单
             this.save(orders);
+            //保存订单明细
             orderDetailService.saveBatch(orderDetails);
+            //清空购物车数据
+            shoppingCartService.remove(queryWrapper);
         }
     }
 
