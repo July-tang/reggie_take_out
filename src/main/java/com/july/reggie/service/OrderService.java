@@ -60,12 +60,4 @@ public interface OrderService extends IService<Orders> {
      * @return
      */
     boolean cancel(Orders orders);
-
-    /**
-     * 保存订单和订单明细当订单不存在时
-     *
-     * @param orders
-     * @param orderDetails
-     */
-    void saveIfAbsent(Orders orders, List<OrderDetail> orderDetails);
 }

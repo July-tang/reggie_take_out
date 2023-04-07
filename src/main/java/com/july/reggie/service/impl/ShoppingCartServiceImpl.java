@@ -19,6 +19,6 @@ public class ShoppingCartServiceImpl extends ServiceImpl<ShoppingCartMapper, Sho
 
     @Override
     public void saveIfAbsent(ShoppingCart shoppingCart) {
-        shoppingCartMapper.saveIfAbsent(shoppingCart);
+        shoppingCartMapper.insert(shoppingCart);
     }
 }

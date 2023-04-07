@@ -32,6 +32,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -72,11 +73,16 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
     @Value("${ali-pay.return-url}")
     private String returnUrl;
 
+    @Resource
+    private OrderServiceImpl proxy;
+
     @Override
     public boolean submitToQueue(Orders orders) {
         Long userId = BaseContext.getCurrentId();
         Long orderId = IdWorker.getId();
-        if (redisTemplate.opsForValue().get(userId.toString()) != null) return false;
+        if (redisTemplate.opsForValue().get(userId.toString()) != null) {
+            return false;
+        }
         orders.setUserId(userId);
         orders.setId(orderId);
         orders.setNumber(String.valueOf(orderId));
@@ -89,7 +95,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Orders submitOrder(Orders orders) {
         Long userId = orders.getUserId();
         Long orderId = orders.getId();
@@ -135,7 +141,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
                 + (addressBook.getDetail() == null ? "" : addressBook.getDetail()));
 
         //保存订单和订单明细
-        this.saveIfAbsent(orders, orderDetails, queryWrapper);
+        proxy.saveIfAbsent(orders, orderDetails, queryWrapper);
 
         //发送订单号到延迟队列
         rabbitTemplate.convertAndSend(RabbitConfig.DELAYED_EXCHANGE_NAME, RabbitConfig.DELAYED_ROUTING_KEY,
@@ -149,13 +155,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Page<OrdersDto> pageWithDetails(int page, int pageSize) {
         Page<Orders> pageInfo = new Page<>(page, pageSize);
         LambdaQueryWrapper<Orders> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Orders::getUserId, BaseContext.getCurrentId())
                 .orderByDesc(Orders::getOrderTime);
-        this.page(pageInfo, queryWrapper);
+        proxy.page(pageInfo, queryWrapper);
 
         Page<OrdersDto> ordersDtoPage = new Page<>();
         BeanUtils.copyProperties(pageInfo, ordersDtoPage, "records");
@@ -180,7 +186,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void again(Orders orders) {
         Long userId = BaseContext.getCurrentId();
 
@@ -235,6 +241,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
      * @param orderDetails
      * @param queryWrapper
      */
+    @Transactional(rollbackFor = Exception.class)
     public void saveIfAbsent(Orders orders, List<OrderDetail> orderDetails, LambdaQueryWrapper<ShoppingCart> queryWrapper) {
         LambdaUpdateWrapper<Orders> wrapper = new LambdaUpdateWrapper<>();
         wrapper.eq(Orders::getNumber, orders.getNumber());
